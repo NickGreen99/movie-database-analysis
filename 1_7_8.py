@@ -35,17 +35,39 @@ conn = sqlite3.connect("movieRatings.db")
 
 # Query the database for the movies and fetch the results
 query = "SELECT * FROM movies"
-result = pd.read_sql(query, conn)
+movie_ratings = pd.read_sql(query, conn)
 conn.close()
 
 # Display the first few rows of the result
-print(result.head())
+print(movie_ratings.head())
 
 # Row 896 has no movie ratings and no personal questions answered, so we will remove the row.
-result_drop = result.drop(index=896)
-# For the rest of the misisng data we will impute them using cross section median
-result_imputed = result.fillna(result_drop.median())
+movie_ratings = movie_ratings.drop(index=896)
 
-print("\nDataFrame after Imputation using Cross-Sectional Median:")
-print(result_imputed.head())
+# Function to impute using cross-section median
+def impute_cross_section_median(df):
+    # Calculate column medians excluding NaN values
+    col_medians = df.iloc[:, 0:].median()
+    
+    # Iterate through each row to fill in missing values
+    for index, row in df.iterrows():
+        # Get the non-NaN values in the row
+        row_values = row[0:]
+        
+        for col in row.index[0:]:  # Iterate over columns 
+            if pd.isna(row[col]):  # If value is NaN
+                # Calculate row median (excluding NaN values)
+                row_median = row_values.dropna().median()
+                # Cross-section median
+                cross_section_median = (col_medians[col] + row_median) / 2
+                if (cross_section_median % 1 > 0.25) and (cross_section_median % 1 < 0.75):
+                    cross_section_median = round(cross_section_median * 2)/2
+                else:
+                    cross_section_median = round(cross_section_median)
+                # Impute the missing value
+                df.at[index, col] = cross_section_median
+
+impute_cross_section_median(movie_ratings)
+
+print(movie_ratings.head())
 conn.close()
